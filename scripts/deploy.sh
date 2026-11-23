@@ -9,6 +9,10 @@
 # entorno virtual y su propia base de datos. Solo se instalan las dependencias de EJECUCIÓN.
 set -euo pipefail
 
+# Validar las credenciales antes de iniciar el despliegue.
+: "${FLASK_SECRET_KEY:?Falta configurar FLASK_SECRET_KEY}"
+: "${ADMIN_CLAVE_HASH:?Falta configurar ADMIN_CLAVE_HASH}"
+
 ENTORNO="${1:?Indica el entorno: staging o produccion}"
 PUERTO="${2:?Indica el puerto}"
 APP_VERSION="${APP_VERSION:-dev}"

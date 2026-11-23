@@ -66,8 +66,22 @@ stage('Security Review (SAST)') {
         stage('Deploy Producción') {
             // >>> [GATE]: aquí va la condición "when" que protege producción
             steps {
-                sh 'bash scripts/deploy.sh produccion 5000'
-                script { env.PRODUCCION = env.APP_VERSION }
+                withCredentials([
+                    string(
+                        credentialsId: 'flask-secret-key',
+                        variable: 'FLASK_SECRET_KEY'
+                    ),
+                    string(
+                        credentialsId: 'admin-clave-hash',
+                        variable: 'ADMIN_CLAVE_HASH'
+                    )
+                ]) {
+                    sh 'bash scripts/deploy.sh produccion 5000'
+                }
+
+                script {
+                    env.PRODUCCION = env.APP_VERSION
+                }
             }
         }
     }

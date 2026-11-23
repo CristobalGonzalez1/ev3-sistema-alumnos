@@ -5,21 +5,32 @@
 Además de las rutas de negocio, la app publica métricas para Prometheus en /metrics.
 Las métricas de seguridad (logins fallidos y peticiones sospechosas) se ven en Grafana.
 """
-import hashlib
+##import hashlib
 import os
 import re
 import sqlite3
 import time
 
+from markupsafe import escape
+from werkzeug.security import check_password_hash
 from flask import Flask, Response, g, jsonify, render_template_string, request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
 app = Flask(__name__)
 
 ## Clave de la aplicación y credenciales del administrador.
-SECRET_KEY = "SecureDev-2024-clave-super-secreta"
-ADMIN_USUARIO = "admin"
-ADMIN_CLAVE_MD5 = "21232f297a57a5a743894a0e4a801fc3"
+
+##SECRET_KEY = "SecureDev-2024-clave-super-secreta"
+
+SECRET_KEY = os.environ.get("FLASK_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("Falta configurar FLASK_SECRET_KEY")
+
+##ADMIN_USUARIO = "admin"
+##ADMIN_CLAVE_MD5 = "21232f297a57a5a743894a0e4a801fc3"
+ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
+ADMIN_CLAVE_HASH = os.environ.get("ADMIN_CLAVE_HASH", "")
 app.config["SECRET_KEY"] = SECRET_KEY
 
 ## Versión desplegada: la inyecta el pipeline (1.0.<build>+<commit>). Sirve para la trazabilidad.
@@ -148,10 +159,12 @@ def portada():
 def hello():
     """!
     @brief Saluda al usuario cuyo nombre llega en el parámetro de URL «name».
-    @return Página HTML con el saludo.
+    @return Página HTML con el saludo, escapando caracteres peligrosos
+    para prevenir ataques XSS.
     """
     name = request.args.get("name", "visitante")
-    return f"<h1>Hola, {name}!</h1>"
+    ##return f"<h1>Hola, {name}!</h1>"
+    return f"<h1>Hola, {escape(name)}!</h1>"
 
 
 @app.route("/health")
@@ -202,11 +215,15 @@ def buscar_alumnos():
     @return JSON con los alumnos encontrados.
     """
     nombre = request.args.get("nombre", "")
-    consulta = f"SELECT * FROM alumnos WHERE nombre LIKE '%{nombre}%'"
+    ##consulta = f"SELECT * FROM alumnos WHERE nombre LIKE '%{nombre}%'"
+    consulta = "SELECT * FROM alumnos WHERE nombre LIKE ?"
     try:
-        filas = conectar().execute(consulta).fetchall()
+        #filas = conectar().execute(consulta).fetchall()
+        filas = conectar().execute(consulta, (f"%{nombre}%",)).fetchall()
     except sqlite3.Error as error:
-        return jsonify({"error": str(error), "consulta": consulta}), 500
+        #return jsonify({"error": str(error), "consulta": consulta}), 500
+        app.logger.exception("Error en la búsqueda")
+        return jsonify({"error": "Error interno"}), 500
     return jsonify([dict(f) for f in filas])
 
 
@@ -218,7 +235,9 @@ def login():
     """
     usuario = request.form.get("usuario", "")
     clave = request.form.get("clave", "")
-    if usuario == ADMIN_USUARIO and hashlib.md5(clave.encode()).hexdigest() == ADMIN_CLAVE_MD5:
+    
+    ##if usuario == ADMIN_USUARIO and hashlib.md5(clave.encode()).hexdigest() == ADMIN_CLAVE_MD5:
+    if (usuario == ADMIN_USUARIO and ADMIN_CLAVE_HASH and check_password_hash(ADMIN_CLAVE_HASH, clave)):
         LOGIN_EXITOSOS.inc()
         return jsonify({"mensaje": "Bienvenido, administrador"})
     LOGIN_FALLIDOS.inc()
@@ -237,5 +256,13 @@ def metrics():
 
 iniciar_db()
 
+##if __name__ == "__main__":
+##    app.run(host="0.0.0.0", port=5000, debug=True)
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host=os.environ.get("FLASK_HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "5000")),
+        debug=False
+    )
