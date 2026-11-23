@@ -1,6 +1,6 @@
 # Registro de seguridad · Sistema Alumnos
 
-Estudiante: ____________________   Repositorio: ____________________   Fecha: __________
+Estudiante: Cristobal Gonzalez   Repositorio: https://github.com/CristobalGonzalez1/ev3-sistema-alumnos.git   Fecha: 23-11-2026
 
 Completa este registro a medida que avanzas. Cada fila debe poder seguirse hasta un **build de Jenkins**
 y un **commit** (usa el identificador `VULN-xx` en el mensaje del commit).
@@ -19,11 +19,14 @@ y un **commit** (usa el identificador `VULN-xx` en el mensaje del commit).
 
 | ID | Vulnerabilidad (CWE) | Detectada por | Ubicación | Riesgo | Corrección aplicada | Commit | Build que lo verifica |
 |---|---|---|---|---|---|---|---|
-| VULN-01 | | | `app.py:__` | | | | #__ |
-| VULN-02 | | | | | | | |
-| VULN-03 | | | | | | | |
+| VULN-01 | SQL Injection (CWE-89, B608) | Bandit | app.py, /alumnos/buscar | Medio | Consultas parametrizadas con SQLite | VULN-01 | #6 |
+| VULN-02 | Hash MD5 inseguro (CWE-327, B324) | Bandit | app.py, /login | Alto | Se reemplazó MD5 por hash scrypt y check_password_hash() | VULN-01 | #6 |
+| VULN-03 | Clave secreta fija (CWE-259, B105) | Bandit | app.py, SECRET_KEY | Bajo | Se utiliza FLASK_SECRET_KEY desde variable de entorno | VULN-01 | #6 |
+| VULN-04 | Debug habilitado (CWE-94, B201) | Bandit | app.py, app.run() | Alto | Se desactivó debug=True | VULN-01 | #6 |
+| VULN-05 | Exposición de interfaces (CWE-605, B104) | Bandit | app.py, app.run() | Medio | Se configuró FLASK_HOST con 127.0.0.1 por defecto | VULN-01 | #6 |
+| VULN-06 | Cross-Site Scripting (CWE-79) | Revisión manual | app.py, /hello | Alto | Se incorporó escape() de MarkupSafe | VULN-01 | #6 |
 
-(Agrega las filas que necesites.)
+
 
 ## 3. Resultados de OWASP ZAP
 
