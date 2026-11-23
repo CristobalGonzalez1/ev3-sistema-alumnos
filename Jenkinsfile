@@ -40,8 +40,16 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh '.venv/bin/python -m pytest --junitxml=reports/junit.xml'
+                withCredentials([
+                    string(
+                        credentialsId: 'flask-secret-key',
+                        variable: 'FLASK_SECRET_KEY'
+                    )
+                ]) {
+                    sh '.venv/bin/python -m pytest --junitxml=reports/junit.xml'
+                    }
             }
+
             post {
                 always {
                     junit allowEmptyResults: true, testResults: 'reports/junit.xml'
