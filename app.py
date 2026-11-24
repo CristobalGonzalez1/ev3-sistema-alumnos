@@ -256,9 +256,25 @@ def metrics():
 
 iniciar_db()
 
+
+@app.after_request
+def agregar_cabeceras_seguridad(response):
+    """Incorpora cabeceras HTTP de seguridad."""
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 ##if __name__ == "__main__":
 ##    app.run(host="0.0.0.0", port=5000, debug=True)
-
 
 if __name__ == "__main__":
     app.run(
