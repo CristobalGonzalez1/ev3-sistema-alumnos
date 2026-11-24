@@ -19,8 +19,12 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
-ZAP = os.environ.get("ZAP_URL", "http://zap:8080")
+ZAP = os.environ.get("ZAP_URL", "http://ev3-zap:8080")
 CLAVE = Path(os.environ.get("ZAP_API_KEY_FILE", "/run/secrets/zap_api_key")).read_text().strip()
+# Conexiones directas a los servicios internos de Docker.
+opener = urllib.request.build_opener(
+    urllib.request.ProxyHandler({})
+)
 MINUTOS_ACTIVO = int(os.environ.get("ZAP_MINUTOS_ACTIVO", "6"))
 FALLA_EN = {"High", "Medium"}
 REPORTES = Path("reports")
@@ -30,7 +34,7 @@ def api(ruta, formato="JSON", **parametros):
     """Llama a la API de ZAP y devuelve JSON (o texto para los reportes)."""
     parametros["apikey"] = CLAVE
     url = f"{ZAP}/{formato}/{ruta}/?{urllib.parse.urlencode(parametros)}"
-    with urllib.request.urlopen(url, timeout=60) as respuesta:
+    with opener.open(url, timeout=60) as respuesta:
         cuerpo = respuesta.read().decode("utf-8")
     return json.loads(cuerpo) if formato == "JSON" else cuerpo
 

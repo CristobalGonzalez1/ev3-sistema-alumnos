@@ -70,6 +70,40 @@ stage('Security Review (SAST)') {
 }
 
         // >>> [ZAP]: aquí van las etapas "Deploy Staging" y "DAST - OWASP ZAP"
+        stage('Deploy Staging') {
+            steps {
+                withCredentials([
+                    string(
+                        credentialsId: 'flask-secret-key',
+                        variable: 'FLASK_SECRET_KEY'
+                    ),
+                    string(
+                        credentialsId: 'admin-clave-hash',
+                        variable: 'ADMIN_CLAVE_HASH'
+                    )
+                ]) {
+                    sh 'bash scripts/deploy.sh staging 5001'
+                }
+            }
+        }
+
+        stage('DAST - OWASP ZAP') {
+            steps {
+                script {
+                    int resultado = sh(
+                        script: '.venv/bin/python scripts/zap_scan.py http://ev3-jenkins:5001',
+                        returnStatus: true
+                    )
+
+                    if (resultado == 2) {
+                        unstable('OWASP ZAP encontró alertas High o Medium')
+                    } else if (resultado != 0) {
+                        error("Error al ejecutar OWASP ZAP: ${resultado}")
+                    }
+                }
+            }
+        }
+
 
         stage('Deploy Producción') {
             // >>> [GATE]: aquí va la condición "when" que protege producción
