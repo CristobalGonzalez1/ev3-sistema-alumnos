@@ -11,6 +11,10 @@ import re
 import sqlite3
 import time
 
+import hmac
+import secrets
+
+from flask import Flask, Response, g, jsonify, render_template_string, request, session
 from markupsafe import escape
 from werkzeug.security import check_password_hash
 from flask import Flask, Response, g, jsonify, render_template_string, request
@@ -78,6 +82,9 @@ PORTADA = """<!doctype html>
 </form>
 <h2>Acceso administrador</h2>
 <form action="/login" method="post">
+
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  
   <input name="usuario" value="admin"> <input name="clave" type="password" value="">
   <button type="submit">Entrar</button>
 </form>
@@ -152,7 +159,17 @@ def portada():
     @brief Portada HTML con enlaces y formularios del sistema.
     @return Página HTML.
     """
-    return render_template_string(PORTADA, version=VERSION)
+    token = session.get("csrf_token")
+
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+
+    return render_template_string(
+        PORTADA,
+        version=VERSION,
+        csrf_token=token
+    )
 
 
 @app.route("/hello")
@@ -233,15 +250,35 @@ def login():
     @brief Valida las credenciales del administrador enviadas por formulario.
     @return JSON con el resultado; 401 si las credenciales no son válidas.
     """
+    # Verificar token CSRF antes de procesar las credenciales.
+    token_sesion = session.get("csrf_token")
+    token_recibido = request.form.get("csrf_token", "")
+
+    if (
+        not token_sesion
+        or not token_recibido
+        or not hmac.compare_digest(token_sesion, token_recibido)
+    ):
+        return jsonify({"error": "Token CSRF inválido"}), 400
+
     usuario = request.form.get("usuario", "")
     clave = request.form.get("clave", "")
-    
-    ##if usuario == ADMIN_USUARIO and hashlib.md5(clave.encode()).hexdigest() == ADMIN_CLAVE_MD5:
-    if (usuario == ADMIN_USUARIO and ADMIN_CLAVE_HASH and check_password_hash(ADMIN_CLAVE_HASH, clave)):
+
+    # Validación segura del hash de contraseña.
+    if (
+        usuario == ADMIN_USUARIO
+        and ADMIN_CLAVE_HASH
+        and check_password_hash(ADMIN_CLAVE_HASH, clave)
+    ):
         LOGIN_EXITOSOS.inc()
         return jsonify({"mensaje": "Bienvenido, administrador"})
+
     LOGIN_FALLIDOS.inc()
-    app.logger.warning("Login fallido para el usuario '%s' desde %s", usuario, request.remote_addr)
+    app.logger.warning(
+        "Login fallido para el usuario '%s' desde %s",
+        usuario,
+        request.remote_addr
+    )
     return jsonify({"error": "Credenciales inválidas"}), 401
 
 
@@ -266,6 +303,9 @@ def agregar_cabeceras_seguridad(response):
         "style-src 'self'; "
         "object-src 'none'; "
         "base-uri 'self'; "
+        
+        "form-action 'self'; "
+        
         "frame-ancestors 'none'"
     )
     response.headers["X-Frame-Options"] = "DENY"
@@ -275,6 +315,7 @@ def agregar_cabeceras_seguridad(response):
 
 ##if __name__ == "__main__":
 ##    app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 if __name__ == "__main__":
     app.run(
